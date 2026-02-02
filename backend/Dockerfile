@@ -22,6 +22,8 @@ COPY . .
 # Expose port (FastAPI default is 8000)
 EXPOSE 8000
 
+# Set PYTHONPATH to include the current directory
+ENV PYTHONPATH=/app
+
 # Command to run the application
-# We use --reload for development, but remove it for production
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

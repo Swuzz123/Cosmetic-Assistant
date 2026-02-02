@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS products (
   description         TEXT, 
   ingredients         TEXT, 
   highlights          TEXT,
-  embeddings          vector(1536),
+  embedding           vector(768),
   created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

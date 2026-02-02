@@ -1,17 +1,23 @@
 # Langchain ecosystem
-langchain
-langchain-core
-langchain-community
-langchain-google-genai
-langchain-openai
-langgraph
+langchain==1.1.0
+langchain-core==1.1.0
+langchain-openai==1.1.7
+langchain-community==0.4.1
+langgraph==1.0.4
+
+# LLM core
+openai
+google-genai>=0.3.0
+google-api-core>=2.0.0
 
 # Backend core
+tqdm
 asyncpg
-sqlalchemy
 uvicorn
 fastapi
+pgvector
 pydantic
 python-dotenv
 psycopg2-binary
 pydantic-settings
+sqlalchemy
