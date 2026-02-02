@@ -17,14 +17,17 @@ class Settings(BaseSettings):
   # AI Service Configuration
   # TODO: Add your OpenAI or Gemini API Key here
   OPENAI_API_KEY: Optional[str] = None
-  
+  OPENAI_BASE_URL: Optional[str] = "https://integrate.api.nvidia.com/v1"
+  MODEL_NAME: str = "meta/llama-3.3-70b-instruct"
+
   @property
-  def DATABASE_URL(self) -> str:
-    # TODO: This constructs the connection string. Ensure drivers (asyncpg) are installed.
-    return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+  def SYNC_DATABASE_URL(self) -> str:
+    # Synchronous connection string for Agent Tools (using psycopg2)
+    return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
   class Config:
     env_file = ".env"
     case_sensitive = True
+    extra = "ignore"
 
 settings = Settings()
