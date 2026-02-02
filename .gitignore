@@ -1,12 +1,17 @@
 # ignore python bytecode
 __pycache__/
+*.py[cod]
 
 # ignore virtual env
 venv/
+.env/
+.venv/
+env/
 
 # ignore volumes
 database/volumes/
 
 #ignore .env
-.env.backend
-.env.src
+.env
+.env.*
+*.env
