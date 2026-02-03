@@ -38,8 +38,11 @@ class GoogleAPIChecker:
       return status_code in {403, 429}
 
 class KeyManager:
-  def __init__(self, settings):
-    self.keys = self._load_keys(settings)
+  def __init__(self, settings, explicit_keys: List[str] = None):
+    if explicit_keys:
+      self.keys = explicit_keys
+    else:
+      self.keys = self._load_keys(settings)
     self.current_index = 0
     if not self.keys:
       logger.warning("No GOOGLE_API_KEYS found. Embedding service may fail.")

@@ -14,10 +14,6 @@ class Settings(BaseSettings):
   POSTGRES_DB: str = "cosmetics_db"
 
   # ------------------------- AI SERVICE CONFIGURATION -------------------------
-  # Google Gemini (For Embedding)
-  GOOGLE_API_KEY: Optional[str] = None
-  
-  # For rotation support (loaded dynamically or via comma-separated string)
   GOOGLE_API_KEYS: Optional[str] = None
 
   # Nvidia NIM (For Agent / LLM)

@@ -1,6 +1,5 @@
 # Langchain ecosystem
 langchain==1.1.0
-langchain-core==1.1.0
 langchain-openai==1.1.7
 langchain-community==0.4.1
 langgraph==1.0.4

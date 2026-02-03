@@ -17,11 +17,12 @@ class EmbeddingService:
     batch_size: int = 30,
     rpm_limit: int = 55,
     rpd_limit: int = 1450,
+    api_keys: List[str] = None,
   ):
     from app.core.config import settings
     from app.utils.google_api_helper import KeyManager
     
-    self.key_manager = KeyManager(settings)
+    self.key_manager = KeyManager(settings, explicit_keys=api_keys)
     self.client = self._get_client()
     self.model_name = model_name
     self.batch_size = batch_size

@@ -7,13 +7,13 @@ from sqlalchemy import Column, String, Text, Integer, ForeignKey, DECIMAL, TIMES
 class Product(Base):
   __tablename__ = "products"
 
-  product_id = Column(String(50), primary_key=True)  # ID from CSV
+  product_id = Column(String(50), primary_key=True) 
   brand_id = Column(Integer, ForeignKey("brands.brand_id"))
   product_name = Column(String(255), nullable=False)
   description = Column(Text)
   ingredients = Column(Text)
   highlights = Column(Text)
-  embedding = Column(Vector(768))  # Gemini embedding size or 1536 for OpenAI (check config)
+  embedding = Column(Vector(768)) 
   created_at = Column(TIMESTAMP, server_default=func.now())
 
   # Relationships
@@ -30,7 +30,6 @@ class ProductVariant(Base):
   price = Column(DECIMAL(10, 2))
   availability = Column(String(50))
   primary_image_url = Column(Text)
-  # metadata_info = Column("metadata", JSONB) # 'metadata' is reserved in SQLAlchemy Base, so map it
 
   # Relationships
   product = relationship("Product", back_populates="variants")
