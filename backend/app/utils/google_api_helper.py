@@ -7,35 +7,35 @@ from app.core.logging import setup_logging
 logger = setup_logging()
 
 class GoogleAPIChecker:
-    @staticmethod
-    def extract_status_code(error: Exception) -> Optional[int]:
-      """
-      Extract HTTP-like status code from Google API exception.
-      """
-      if isinstance(error, gexc.ResourceExhausted):
-        return 429
-      if isinstance(error, gexc.PermissionDenied):
-        return 403
-      if isinstance(error, gexc.Unauthorized):
-        return 401
-      if isinstance(error, gexc.InvalidArgument):
-        return 400
-      if isinstance(error, gexc.NotFound):
-        return 404
-      if isinstance(error, gexc.InternalServerError):
-        return 500
-      if isinstance(error, gexc.ServiceUnavailable):
-        return 503
-      if isinstance(error, gexc.DeadlineExceeded):
-        return 504
-      return None
-  
-    @staticmethod
-    def should_rotate_key(status_code: int) -> bool:
-      """
-      Only rotate key if the error relates to key exhaustion or quota exhaustion.
-      """
-      return status_code in {403, 429}
+  @staticmethod
+  def extract_status_code(error: Exception) -> Optional[int]:
+    """
+    Extract HTTP-like status code from Google API exception.
+    """
+    if isinstance(error, gexc.ResourceExhausted):
+      return 429
+    if isinstance(error, gexc.PermissionDenied):
+      return 403
+    if isinstance(error, gexc.Unauthorized):
+      return 401
+    if isinstance(error, gexc.InvalidArgument):
+      return 400
+    if isinstance(error, gexc.NotFound):
+      return 404
+    if isinstance(error, gexc.InternalServerError):
+      return 500
+    if isinstance(error, gexc.ServiceUnavailable):
+      return 503
+    if isinstance(error, gexc.DeadlineExceeded):
+      return 504
+    return None
+
+  @staticmethod
+  def should_rotate_key(status_code: int) -> bool:
+    """
+    Only rotate key if the error relates to key exhaustion or quota exhaustion.
+    """
+    return status_code in {403, 429}
 
 class KeyManager:
   def __init__(self, settings, explicit_keys: List[str] = None):
@@ -65,7 +65,7 @@ class KeyManager:
       elif isinstance(settings.GOOGLE_API_KEYS, str):
         return [k.strip() for k in settings.GOOGLE_API_KEYS.split(',') if k.strip()]
 
-    # 2. Try pattern matching from environment (via os.environ as settings object might strictly define fields)
+    # 2. Try pattern matching from environment
     import os
     for key, value in os.environ.items():
       if key.startswith("GOOGLE_API_KEY_") and key[15:].isdigit():

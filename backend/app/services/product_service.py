@@ -12,6 +12,32 @@ class ProductService:
     return result
 
   @staticmethod
+  def get_product_by_id_or_name(db: Session, identifier: str) -> Optional[Product]:
+    """Fetch product by ID first, then try Name (case-insensitive), then fuzzy"""
+    # 1. Try ID
+    stmt = select(Product).where(Product.product_id == identifier)
+    result = db.execute(stmt).scalars().first()
+    
+    if not result:
+        # 2. Try Name (Identifier inside Product Name)
+        # e.g. identifier="Ruby Woo", name="Mac Ruby Woo" -> MATCH
+        stmt = select(Product).where(Product.product_name.ilike(f"%{identifier}%"))
+        result = db.execute(stmt).scalars().first()
+        
+    if not result:
+        # 3. Try Reverse Name (Product Name inside Identifier)
+        # e.g. identifier="Lippie Stix by ColourPop", name="Lippie Stix" -> MATCH
+        # Using python-side filtering for simplicity and safety against SQL injection quirks with formatting
+        # Or using SQL: WHERE :identifier ILIKE ('%' || product_name || '%')
+        from sqlalchemy import literal, func
+        stmt = select(Product).where(literal(identifier).ilike(func.concat('%', Product.product_name, '%')))
+        # We might match multiple (e.g. "Lipstick" inside "Red Lipstick"). We want the LONGEST match ideally.
+        # Let's take the first one for now, usually it finds the specific one if identifier is specific.
+        result = db.execute(stmt).scalars().first()
+        
+    return result
+
+  @staticmethod
   def get_top_products(db: Session, limit: int = 10) -> List[Product]:
     """Fetch top products (simple limit for now)"""
     stmt = select(Product).limit(limit)

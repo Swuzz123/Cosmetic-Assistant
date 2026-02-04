@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Optional, Type
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -18,27 +20,37 @@ class ExpertTool(BaseTool):
   def _run(self, product_id: str) -> str:
     session = SessionLocal()
     try:
-      product = ProductService.get_product_by_id(session, product_id)
+      # Use enhanced lookup (ID or Name) to support context resolution
+      product = ProductService.get_product_by_id_or_name(session, product_id)
+      
       if not product:
-        return f"Product with ID {product_id} not found."
+        logging.warning(f"Product ID {product_id} not found.")
+        return json.dumps({"error": "Product not found"})
+
+      # Serialize product data
+      data = {
+        "product_id": product.product_id,
+        "name": product.product_name,
+        "description": product.description,
+        "highlights": product.highlights,
+        "ingredients": product.ingredients,
+        "variants": []
+      }
+
+      # Add variants if available (Lazy Loading via relationship access)
+      if hasattr(product, "variants") and product.variants:
+        for v in product.variants:
+          data["variants"].append({
+            "color": v.color,
+            "size": v.size,
+            "price": float(v.price) if v.price else None,
+            "availability": v.availability
+          })
       
-      # Format output as a readable text for the Agent
-      details = (
-        f"Product: {product.product_name}\n"
-        f"Description: {product.description}\n"
-        f"Ingredients: {product.ingredients}\n"
-        f"Highlights: {product.highlights}\n"
-        f"Variants Available: {len(product.variants)}\n"
-      )
-      
-      # List variants briefly
-      variants_info = "\n".join([f"- {v.color} (${v.price})" for v in product.variants[:10]])
-      if len(product.variants) > 10:
-        variants_info += "\n... (more variants)"
-          
-      return details + "\nVariants:\n" + variants_info
-      
+      return json.dumps(data, indent=2, ensure_ascii=False)
+
     except Exception as e:
-      return f"Error retrieving product details: {str(e)}"
+      logging.error(f"Error fetching product details: {e}", exc_info=True)
+      return json.dumps({"error": f"Internal error: {str(e)}"})
     finally:
       session.close()

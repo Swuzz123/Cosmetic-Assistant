@@ -1,11 +1,5 @@
-import sys
-import os
-import logging
 import json
-
-# Add parent path to allow imports
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
+import logging
 from app.ai.tools import SearchTool, ConsultantTool, ExpertTool
 
 logging.basicConfig(level=logging.INFO)

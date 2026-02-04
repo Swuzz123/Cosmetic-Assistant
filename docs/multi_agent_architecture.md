@@ -251,6 +251,34 @@ Hệ thống bao gồm 4 Agents chuyên biệt:
 - **User:** "So sánh giá và độ lì của cây Revlon và cây MAC vừa rồi."
 - **Flow:** Orchestrator -> **Product Expert** -> Lấy info cây Revlon + cây MAC -> LLM so sánh -> Trả bảng so sánh.
 
+#### **UC5: Simple Purchase (Mua đơn giản)**
+
+**User Flow:**
+
+1. "Tôi muốn mua cây số 2" (sau khi xem recommend)
+2. Bot: "Dạ để em thêm vào giỏ. Anh cần gì thêm không ạ?"
+3. User: "Không, thanh toán luôn"
+4. **→ Sales Agent kích hoạt**
+5. Bot: "Dạ tổng cộng $25.99. Anh cho em tên và địa chỉ nhận hàng ạ?"
+6. User: "Nguyễn Văn A, 123 Lê Lợi, Q1, TP.HCM"
+7. Bot: "Đã đặt hàng thành công. Mã đơn #12345"
+
+#### **UC6: Multi-item Purchase (Mua nhiều món)**
+
+**User:** "Thêm cây số 1 và số 3 vào giỏ" **Handling:**
+
+- Sales Agent parse ra 2 variant_ids
+- Add vào `cart_items` trong STM
+- Bot: "Đã thêm 2 sản phẩm. Tổng $48.5. Tiếp tục mua hay thanh toán ạ?"
+
+#### **UC7: Modify Cart (Sửa giỏ hàng)**
+
+**User:** "Bỏ cây số 1 đi, chỉ lấy cây số 3 thôi" **Handling:**
+
+- Sales Agent remove item từ `cart_items`
+- Tính lại tổng tiền
+- Bot: "Đã xóa. Còn lại $25.99"
+
 ### ⚠️ Edge Cases (Luồng ngoại lệ)
 
 #### EC1: Vague Input (Thiếu thông tin)
@@ -317,11 +345,29 @@ Dựa trên kinh nghiệm thực tế với chatbot thương mại điện tử,
 - **User:** Orchestrator hỏi "Ngân sách bao nhiêu?" → User: "Không biết, tùy"
 - **Handling:** Chuyển sang **default assumption** (ví dụ: range giá phổ biến $10-30) và hỏi confirm
 
+### **⚠️ NEW EDGE CASES (Liên quan Sales)**
+
+#### **EC11: Insufficient Stock (Hết hàng)**
+
+**User:** "Mua 10 cây màu đỏ này" **Problem:** `availability = "Out of stock"` **Handling:**
+
+- Sales Agent check stock TRƯỚC khi add to cart
+- Bot: "Cây này đã hết hàng ạ. Anh thử cây tương tự này nhé..." (suggest alternatives)
+
+---
+
+#### **EC12: Incomplete Address (Địa chỉ thiếu)**
+
+**User:** "Nguyễn Văn A, TP.HCM" **Problem:** Thiếu số nhà, quận **Handling:**
+
+- Sales Agent validate format (regex hoặc LLM)
+- Bot: "Em cần thêm số nhà và quận/huyện ạ"
+
 ---
 
 ## 5. Implementation Roadmap (Lộ trình triển khai)
 
-Thứ tự code để đảm bảo hệ thống chạy được từng phần:
+Thứ tự code để đảm bảo hệ thống chạy được từng phầ
 
 ### **ROADMAP CHI TIẾT (8 bước)**
 
@@ -463,16 +509,40 @@ python
 
 ---
 
-#### **✅ BƯỚC 8: API + Frontend Integration (2-3 ngày)**
+#### **✅ BƯỚC 8: API + Persistence (Memory) (2-3 ngày)**
 
-python
+Cực kỳ quan trọng để Agent "cắt đuôi" quên lãng và nhớ được khách hàng cũ.
 
 ```python
+# services/chat_history_service.py
+# - Load/Save session context từ DB (bảng chat_sessions)
+# - Convert DB JSON -> LangChain Messages
+
 # api/chat.py
 @router.post("/chat")
 async def chat(request: ChatRequest):
-    # Call orchestrator
-    # Return response
+    # 1. Load context từ DB
+    # 2. Run Graph (Orchestrator)
+    # 3. Save response & new context xuống DB
+    # 4. Return response
 ```
 
-**Test:** Postman/cURL calls
+**Test:**
+
+- Chat 1 câu, tắt Server, bật lại chat tiếp -> Agent vẫn nhớ câu trước.
+
+---
+
+#### **✅ BƯỚC 9: Build SALES AGENT (Nâng cao - 2 ngày)**
+
+Chuyên trách việc chốt đơn như user yêu cầu.
+
+```python
+# agents/sales_agent.py
+# - Xác nhận sản phẩm user muốn mua
+# - Hỏi địa chỉ, SĐT (Slot Filling)
+# - Tính tổng tiền
+# - Tạo Order vào DB (bảng orders)
+```
+
+**Test:** Quy trình chốt đơn trọn vẹn từ "Mua thỏi này" -> "Đơn hàng #123 đã tạo".
