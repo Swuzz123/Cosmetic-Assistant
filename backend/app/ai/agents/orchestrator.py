@@ -1,95 +1,95 @@
-import json
 from typing import Dict, Any, List
-from langchain_core.messages import HumanMessage, BaseMessage
+import logging
 from app.ai.agents.base import BaseAgent
-from app.utils.prompt_templates import ORCHESTRATOR_PROMPT
+from app.ai.agents.search_agent import SearchAgent
+from app.ai.agents.consultant_agent import ConsultantAgent
+from app.ai.agents.expert_agent import ExpertAgent
+from app.ai.memory.memory_manager import MemoryManager
+from app.ai.workflow.query_refiner import QueryRefiner
 from app.core.logging import setup_logging
+from langchain_core.messages import HumanMessage
 
 logger = setup_logging()
 
 class OrchestratorAgent(BaseAgent):
-  def __init__(self):
-    super().__init__([])
-  
-  def route(self, user_input: str, chat_history: List[BaseMessage]) -> Dict[str, Any]:
-    """
-    Analyze the input and route to the correct agent.
-    Returns a dictionary with 'next', 'reasoning', and 'extracted_data'.
-    """
-    # Format chat history as a string for context
-    history_str = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in chat_history[-5:]])
-    
-    prompt = ORCHESTRATOR_PROMPT.format(
-      user_input=user_input,
-      chat_history=history_str
-    )
-    
-    try:
-      logger.info(f"Orchestrator analyzing input: {user_input}")
-      
-      response = self.llm.invoke([HumanMessage(content=prompt)])
-      content = response.content.strip()
-      
-      import re
-      # 1. Try to find JSON inside ```json ... ``` code blocks
-      code_block_match = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
-      if code_block_match:
-        json_str = code_block_match.group(1)
-      else:
-        json_match = re.search(r"\{.*?\}", content, re.DOTALL)
-        if json_match:
-          json_str = json_match.group(0)
-        else:
-           # Fallback to greedy if structure is complex (nested)
-           greedy_match = re.search(r"\{.*\}", content, re.DOTALL)
-           if greedy_match:
-              json_str = greedy_match.group(0)
-           else:
-              raise json.JSONDecodeError("No JSON block found", content, 0)
+	def __init__(self):
+		super().__init__([]) 
+		self.search_agent = SearchAgent()
+		self.consultant_agent = ConsultantAgent()
+		self.expert_agent = ExpertAgent()
+		
+		self.memory = MemoryManager(self.llm)
+		self.refiner = QueryRefiner(self.llm)
 
-      decision = json.loads(json_str)
-      
-      logger.info(f"Orchestrator decision: {decision}")
-      
-      return decision
+	def run(self, user_input: str) -> str:
+		logger.info(f"Orchestrator received: {user_input}")
+		
+		# 1. Update Short-term Memory (User turn)
+		self.memory.add_message("user", user_input)
+		
+		# 2. Check & Trigger Summarization
+		self.memory.check_and_summarize()
+		
+		# 3. Refine Query (Understanding Layer)
+		history_text = self.memory.get_history_text()
+		refined = self.refiner.refine_query(user_input, history_text, self.memory.session_summary)
+		
+		logger.info(f"Refined Query Result: {refined}")
+		
+		if refined.get("needs_clarification"):
+			questions = "\n".join(refined["clarifying_questions"])
+			response_text = f"I'm not sure specifically what you mean. {questions}"
+			self.memory.add_message("assistant", response_text)
+			return response_text
 
-    except json.JSONDecodeError:
-      logger.error(f"Failed to parse Orchestrator JSON response: {content}")
-      # Fallback to General if parsing fails
-      return {
-        "next": "general",
-        "reasoning": "Failed to parse intent, defaulting to general response.",
-        "extracted_data": {}
-      }
-    except Exception as e:
-      logger.error(f"Error in Orchestrator: {e}", exc_info=True)
-      return {
-        "next": "general",
-        "reasoning": f"Error occurred: {str(e)}",
-        "extracted_data": {}
-      }
+		final_query = refined.get("rewritten_query", user_input)
+		
+		# 4. Routing Logic
+		intent = self._classify_intent(final_query)
+		logger.info(f"Routing to: {intent}")
+		
+		response_text = "I couldn't process that request."
+		
+		try:
+			if intent == "SEARCH":
+				res = self.search_agent.run(final_query)
+				if isinstance(res, dict):
+					response_text = res.get("output", str(res))
+				else:
+					response_text = str(res)
+							
+			elif intent == "EXPERT":
+				response_text = "Let me check the details for that product... (Product extraction logic to be enhanced)"
+				res = self.consultant_agent.run(final_query)
+				if isinstance(res, dict):
+					response_text = res.get("output", str(res))
+				else:
+					response_text = str(res)
 
-  def generate_general_response(self, user_input: str, chat_history: List[BaseMessage] = []) -> str:
-    """
-    Handle 'general' intent directly (Greetings, Vague requests, Contextual questions).
-    """
-    history_str = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in chat_history[-5:]])
-    
-    prompt = f"""
-    You are a helpful and friendly Cosmetics Assistant.
-    
-    Chat History:
-    {history_str}
-    
-    The user said: "{user_input}"
-    
-    Instructions:
-    - If it's a greeting, greet back warmly.
-    - If the user asks about something discussed previously (e.g. "What is my name?"), use the Chat History to answer.
-    - If it's a vague request (e.g. "I want to buy"), ask clarifying questions (budget? preferred brand? skin type?).
-    - If it's completely out of scope, politely refuse.
-    
-    Keep it short and friendly.
-    """
-    res = self.llm.invoke([HumanMessage(content=prompt)])
-    return res.content
+			else: # CONSULTANT or DEFAULT
+				res = self.consultant_agent.run(final_query)
+				if isinstance(res, dict):
+					response_text = res.get("output", str(res))
+				else:
+					response_text = str(res)
+								
+		except Exception as e:
+			logger.error(f"Agent execution failed: {e}")
+			response_text = "I encountered an internal error while processing your request."
+
+		# 5. Update Memory (Assistant turn)
+		self.memory.add_message("assistant", response_text)
+		return response_text
+
+	def _classify_intent(self, query: str) -> str:
+		prompt = f"""
+		Classify the intent of this query: "{query}"
+		Options:
+		- SEARCH: Specific criteria (price < 20, red color, brand MAC)
+		- EXPERT: Deep specific question about a SINGLE product (ingredients, safety, how to use)
+		- CONSULTANT: General advice, vague needs, "what do you recommend", "dry lips"
+		
+		Return ONLY the word SEARCH, EXPERT, or CONSULTANT.
+		"""
+		res = self.llm.invoke([HumanMessage(content=prompt)])
+		return res.content.strip().upper()

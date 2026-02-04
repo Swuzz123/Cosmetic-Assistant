@@ -1,0 +1,9 @@
+{"role": "user", "content": "Find me a moisturizing lipstick."}
+{"role": "assistant", "content": "I recommend the L'Oreal Colour Riche. It is very hydrating."}
+{"role": "user", "content": "Does it have lead?"}
+{"role": "assistant", "content": "No, it does not contain lead."}
+{"role": "user", "content": "how much?"}
+{"role": "assistant", "content": "It costs $9.99."}
+{"role": "user", "content": "actually, show me something for eyes."}
+{"role": "assistant", "content": "Sure, are you looking for mascara, eyeliner, or eyeshadow?"}
+{"role": "user", "content": "the waterproof one"}
